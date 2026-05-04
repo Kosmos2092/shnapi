@@ -1,9 +1,11 @@
 // =============================================================
-// VIEWMODEL (ViewModel) в паттерне MVVM
-// Связующее звено между Model и View.
-// Содержит: логику UI, команды, свойства для привязки.
-// НЕ знает о конкретных элементах UI (кнопках, полях ввода).
-// View привязывается к свойствам ViewModel через Data Binding.
+// VIEWMODEL — рефакторинг с применением Dependency Injection
+// Изменения относительно предыдущей версии:
+//   — IDialogService внедряется через конструктор (Constructor Injection).
+//   — ViewModel больше не создаёт диалоги самостоятельно и
+//     не зависит от конкретного класса DialogService.
+//   — Конкретную реализацию подставит IoC-контейнер при
+//     разрешении зависимости (см. App.xaml.cs).
 // =============================================================
 
 using System.Collections.ObjectModel;
@@ -12,56 +14,49 @@ using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
 using shnapi.Models;
+using shnapi.Services;
 
 namespace shnapi.ViewModels
 {
     /// <summary>
     /// ViewModel главного окна.
-    /// Реализует INotifyPropertyChanged — это позволяет View
-    /// автоматически обновляться при изменении свойств.
+    /// Зависит от IDialogService — не от DialogService напрямую.
     /// </summary>
     public class MainViewModel : INotifyPropertyChanged
     {
         // -------------------------------------------------------
+        // ЗАВИСИМОСТЬ, внедрённая через конструктор (DI)
+        // -------------------------------------------------------
+
+        // Сервис диалогов. Тип — интерфейс, не конкретный класс.
+        // IoC-контейнер подставит реализацию автоматически.
+        private readonly IDialogService _dialog;
+
+        // -------------------------------------------------------
         // ПОЛЯ
         // -------------------------------------------------------
 
-        // Хранит введённое имя нового контакта
-        private string _newName = string.Empty;
-
-        // Хранит введённый телефон нового контакта
-        private string _newPhone = string.Empty;
-
-        // Хранит текст ошибки валидации
+        private string _newName         = string.Empty;
+        private string _newPhone        = string.Empty;
         private string _validationError = string.Empty;
 
         // -------------------------------------------------------
-        // СВОЙСТВА, привязанные к полям ввода во View
+        // СВОЙСТВА
         // -------------------------------------------------------
 
-        /// <summary>
-        /// Имя нового контакта (привязано к TextBox в XAML).
-        /// При изменении уведомляет View через OnPropertyChanged.
-        /// </summary>
         public string NewName
         {
             get => _newName;
             set { _newName = value; OnPropertyChanged(); }
         }
 
-        /// <summary>
-        /// Телефон нового контакта (привязан к TextBox в XAML).
-        /// </summary>
         public string NewPhone
         {
             get => _newPhone;
             set { _newPhone = value; OnPropertyChanged(); }
         }
 
-        /// <summary>
-        /// Текст ошибки валидации. Пустая строка = нет ошибки.
-        /// Привязан к TextBlock с сообщением об ошибке.
-        /// </summary>
+        /// <summary>Текст ошибки валидации. Пустая строка = нет ошибки.</summary>
         public string ValidationError
         {
             get => _validationError;
@@ -70,59 +65,46 @@ namespace shnapi.ViewModels
 
         // -------------------------------------------------------
         // КОЛЛЕКЦИЯ КОНТАКТОВ
-        // ObservableCollection автоматически уведомляет View
-        // при добавлении/удалении элементов — не нужно вручную
-        // обновлять список на экране.
+        // ObservableCollection уведомляет DataGrid автоматически.
         // -------------------------------------------------------
 
-        /// <summary>
-        /// Список контактов, отображаемый в DataGrid.
-        /// </summary>
         public ObservableCollection<Contact> Contacts { get; }
             = new ObservableCollection<Contact>();
 
         // -------------------------------------------------------
         // КОМАНДЫ
-        // ICommand — интерфейс WPF для привязки действий к кнопкам.
         // -------------------------------------------------------
 
-        /// <summary>
-        /// Команда добавления нового контакта.
-        /// Без параметра — берёт данные из NewName и NewPhone.
-        /// </summary>
-        public ICommand AddCommand { get; }
-
-        /// <summary>
-        /// Команда удаления контакта.
-        /// С параметром — получает объект Contact из DataGrid.
-        /// </summary>
+        public ICommand AddCommand    { get; }
         public ICommand DeleteCommand { get; }
 
         // -------------------------------------------------------
         // КОНСТРУКТОР
+        // IDialogService приходит снаружи — из IoC-контейнера.
+        // ViewModel не знает, какая именно реализация будет передана.
         // -------------------------------------------------------
 
-        public MainViewModel()
+        public MainViewModel(IDialogService dialogService)
         {
-            // Инициализируем команды, передавая методы-обработчики
-            AddCommand    = new RelayCommand(_ => ExecuteAdd(),    _ => CanAdd());
-            DeleteCommand = new RelayCommand(ExecuteDelete,        param => param is Contact);
+            _dialog = dialogService;
+
+            AddCommand    = new RelayCommand(_ => ExecuteAdd(),  _ => CanAdd());
+            DeleteCommand = new RelayCommand(ExecuteDelete,      p  => p is Contact);
         }
 
         // -------------------------------------------------------
         // ЛОГИКА КОМАНД
         // -------------------------------------------------------
 
-        /// <summary>
-        /// Условие активности кнопки "Добавить":
-        /// поля не должны быть пустыми.
-        /// </summary>
         private bool CanAdd()
             => !string.IsNullOrWhiteSpace(NewName) &&
                !string.IsNullOrWhiteSpace(NewPhone);
 
         /// <summary>
-        /// Добавляет новый контакт после прохождения валидации.
+        /// Добавление контакта:
+        ///  1. Валидация формата.
+        ///  2. Проверка дубликата по номеру — ShowWarning через сервис.
+        ///  3. Успешное добавление   — ShowInfo через сервис.
         /// </summary>
         private void ExecuteAdd()
         {
@@ -133,8 +115,7 @@ namespace shnapi.ViewModels
                 return;
             }
 
-            // --- Валидация телефона ---
-            // Допустимые форматы: +7XXXXXXXXXX  или  8XXXXXXXXXX  или  XXXXXXXXXX (10 цифр)
+            // --- Валидация формата телефона ---
             var phoneRegex = new Regex(@"^(\+7|8)?\d{10}$");
             if (!phoneRegex.IsMatch(NewPhone.Trim()))
             {
@@ -142,36 +123,72 @@ namespace shnapi.ViewModels
                 return;
             }
 
-            // Валидация пройдена — добавляем контакт в коллекцию
             ValidationError = string.Empty;
-            Contacts.Add(new Contact { Name = NewName.Trim(), Phone = NewPhone.Trim() });
 
-            // Очищаем поля ввода
+            // --- Проверка дубликата ---
+            // Если номер уже есть в списке — предупреждаем через сервис
+            // и отменяем добавление.
+            bool duplicate = false;
+            foreach (var c in Contacts)
+            {
+                if (c.Phone == NewPhone.Trim())
+                {
+                    duplicate = true;
+                    break;
+                }
+            }
+
+            if (duplicate)
+            {
+                // ShowWarning вызывается через интерфейс —
+                // ViewModel не знает, что за ним стоит MessageBox.
+                _dialog.ShowWarning(
+                    $"Контакт с номером {NewPhone.Trim()} уже существует.",
+                    "Дубликат номера");
+                return;
+            }
+
+            // --- Добавление ---
+            var newContact = new Contact
+            {
+                Name  = NewName.Trim(),
+                Phone = NewPhone.Trim()
+            };
+            Contacts.Add(newContact);
+
+            // Информируем пользователя об успешном добавлении.
+            _dialog.ShowInfo(
+                $"Контакт «{newContact.Name}» успешно добавлен.",
+                "Контакт добавлен");
+
             NewName  = string.Empty;
             NewPhone = string.Empty;
         }
 
         /// <summary>
-        /// Удаляет переданный контакт из коллекции.
-        /// Параметр приходит из DataGrid через CommandParameter="{Binding}".
+        /// Удаление контакта:
+        ///  Запрашиваем подтверждение через ShowConfirmation.
+        ///  Если пользователь нажал «Нет» — не удаляем.
         /// </summary>
         private void ExecuteDelete(object? parameter)
         {
-            if (parameter is Contact contact)
+            if (parameter is not Contact contact) return;
+
+            // ShowConfirmation возвращает true при нажатии «Да».
+            bool confirmed = _dialog.ShowConfirmation(
+                $"Удалить контакт «{contact.Name}» ({contact.Phone})?",
+                "Подтверждение удаления");
+
+            if (confirmed)
                 Contacts.Remove(contact);
         }
 
         // -------------------------------------------------------
-        // РЕАЛИЗАЦИЯ INotifyPropertyChanged
-        // Уведомляет View об изменении конкретного свойства.
+        // INotifyPropertyChanged
         // -------------------------------------------------------
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        /// <summary>
-        /// Вызывается внутри setter'а свойства.
-        /// [CallerMemberName] автоматически подставляет имя свойства.
-        /// </summary>
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }

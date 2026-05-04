@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("shnapi")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+712e1f5b3435ef26d6a754b652ba4bd3ad096c35")]
 [assembly: System.Reflection.AssemblyProductAttribute("shnapi")]
 [assembly: System.Reflection.AssemblyTitleAttribute("shnapi")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

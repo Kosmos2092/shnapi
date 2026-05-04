@@ -1,24 +1,31 @@
 // =============================================================
-// CODE-BEHIND окна (часть View в паттерне MVVM)
-// В правильном MVVM code-behind должен быть максимально пустым.
-// Вся логика вынесена в MainViewModel.
-// Здесь остаётся только инициализация окна.
+// CODE-BEHIND главного окна — View в паттерне MVVM
+//
+// ИЗМЕНЕНИЕ: конструктор теперь принимает MainViewModel
+// как параметр (Constructor Injection).
+// DI-контейнер передаёт уже готовый экземпляр с внедрёнными
+// зависимостями. Здесь просто устанавливается DataContext.
 // =============================================================
 
 using System.Windows;
+using shnapi.ViewModels;
 
 namespace shnapi
 {
-    /// <summary>
-    /// Логика взаимодействия для MainWindow.xaml.
-    /// DataContext (ViewModel) задаётся прямо в XAML — см. MainWindow.xaml.
-    /// </summary>
     public partial class MainWindow : Window
     {
-        public MainWindow()
+        /// <param name="viewModel">
+        /// Внедряется IoC-контейнером автоматически.
+        /// MainWindow не создаёт ViewModel сам — он его получает.
+        /// </param>
+        public MainWindow(MainViewModel viewModel)
         {
-            // Инициализирует компоненты, сгенерированные из XAML
             InitializeComponent();
+
+            // Устанавливаем DataContext программно.
+            // Все привязки {Binding ...} в XAML будут работать
+            // с этим экземпляром ViewModel.
+            DataContext = viewModel;
         }
     }
 }

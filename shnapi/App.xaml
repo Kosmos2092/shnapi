@@ -1,9 +1,15 @@
-﻿<Application x:Class="shnapi.App"
+<!--
+    App.xaml — точка входа WPF-приложения.
+
+    ИЗМЕНЕНИЕ: убран атрибут StartupUri="MainWindow.xaml".
+    Теперь окно создаётся вручную в App.xaml.cs через IoC-контейнер,
+    а не автоматически фреймворком WPF.
+    Это необходимо, чтобы DI-контейнер мог внедрить зависимости
+    в MainWindow и MainViewModel до их отображения.
+-->
+<Application x:Class="shnapi.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:shnapi"
-             StartupUri="MainWindow.xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Application.Resources>
-         
     </Application.Resources>
 </Application>

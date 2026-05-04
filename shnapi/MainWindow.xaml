@@ -1,26 +1,20 @@
 <!--
-    ============================================================
-    VIEW (Представление) в паттерне MVVM
-    Отвечает только за отображение данных и взаимодействие с пользователем.
-    НЕ содержит бизнес-логики — вся логика находится в MainViewModel.
-    Данные получает исключительно через Data Binding.
-    ============================================================
+    MainWindow.xaml — View в паттерне MVVM.
+
+    ИЗМЕНЕНИЕ относительно предыдущей лабораторной:
+    Убрана жёсткая привязка DataContext из XAML:
+        <Window.DataContext>
+            <vm:MainViewModel />   ← БЫЛО (жёсткая связность)
+        </Window.DataContext>
+    Теперь DataContext устанавливается в конструкторе MainWindow.xaml.cs,
+    куда MainViewModel приходит через DI-контейнер.
+    XAML больше не создаёт ViewModel самостоятельно.
 -->
 <Window x:Class="shnapi.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="clr-namespace:shnapi.ViewModels"
         Title="Телефонная книга" Height="480" Width="560"
         ResizeMode="CanMinimize">
-
-    <!--
-        DataContext — ключевой элемент MVVM.
-        Указывает, какой ViewModel обслуживает это окно.
-        Все привязки {Binding ...} ищут свойства именно здесь.
-    -->
-    <Window.DataContext>
-        <vm:MainViewModel />
-    </Window.DataContext>
 
     <Grid Margin="12">
         <Grid.RowDefinitions>
@@ -47,28 +41,16 @@
 
                 <Label Grid.Row="0" Grid.Column="0"
                        Content="Имя:" VerticalAlignment="Center" />
-
-                <!--
-                    Двусторонняя привязка (Mode=TwoWay — по умолчанию для TextBox.Text).
-                    UpdateSourceTrigger=PropertyChanged — ViewModel получает новое значение
-                    при каждом нажатии клавиши, что позволяет CanExecute реагировать мгновенно.
-                -->
                 <TextBox Grid.Row="0" Grid.Column="1"
                          Text="{Binding NewName, UpdateSourceTrigger=PropertyChanged}"
                          VerticalAlignment="Center" />
 
                 <Label Grid.Row="2" Grid.Column="0"
                        Content="Тел.:" VerticalAlignment="Center" />
-
                 <TextBox Grid.Row="2" Grid.Column="1"
                          Text="{Binding NewPhone, UpdateSourceTrigger=PropertyChanged}"
                          VerticalAlignment="Center" />
 
-                <!--
-                    Command="{Binding AddCommand}" — привязка кнопки к ICommand во ViewModel.
-                    WPF автоматически блокирует кнопку, если CanExecute() возвращает false.
-                    Никакого обработчика Click в code-behind не требуется.
-                -->
                 <Button Grid.Row="0" Grid.RowSpan="3" Grid.Column="2"
                         Content="Добавить"
                         Command="{Binding AddCommand}"
@@ -78,8 +60,6 @@
 
         <!-- ====================================================
              СТРОКА ОШИБКИ ВАЛИДАЦИИ
-             Отображается только если ValidationError не пустой.
-             DataTrigger скрывает блок когда текст равен "".
              ==================================================== -->
         <TextBlock Grid.Row="1"
                    Text="{Binding ValidationError}"
@@ -99,9 +79,7 @@
         </TextBlock>
 
         <!-- ====================================================
-             СПИСОК КОНТАКТОВ (DataGrid)
-             ItemsSource привязан к ObservableCollection<Contact>.
-             DataGrid обновляется автоматически при изменении коллекции.
+             СПИСОК КОНТАКТОВ
              ==================================================== -->
         <DataGrid Grid.Row="2"
                   ItemsSource="{Binding Contacts}"
@@ -113,26 +91,13 @@
                   CanUserResizeRows="False">
 
             <DataGrid.Columns>
-
-                <!-- Столбец "Имя" — привязан к свойству Contact.Name -->
                 <DataGridTextColumn Header="Имя"
                                     Binding="{Binding Name}"
                                     Width="*" />
-
-                <!-- Столбец "Телефон" — привязан к свойству Contact.Phone -->
                 <DataGridTextColumn Header="Телефон"
                                     Binding="{Binding Phone}"
                                     Width="160" />
 
-                <!--
-                    Кнопка удаления в каждой строке DataGrid.
-                    CommandParameter="{Binding}" — передаёт объект Contact текущей строки
-                    в DeleteCommand как параметр (DeleteCommand — с параметром).
-
-                    Важно: внутри DataTemplate DataContext = Contact, а не ViewModel.
-                    Поэтому добираемся до DeleteCommand через RelativeSource AncestorType=DataGrid,
-                    у которого DataContext уже является MainViewModel.
-                -->
                 <DataGridTemplateColumn Header="" Width="80">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
@@ -144,7 +109,6 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-
             </DataGrid.Columns>
         </DataGrid>
     </Grid>
